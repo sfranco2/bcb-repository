@@ -34,7 +34,7 @@ def get_latest_excel_url():
     soup = BeautifulSoup(resp.text, "html.parser")
     for a in soup.find_all("a", href=True):
         href = a["href"]
-        if "webdocs" in href and ".xlsx" in href.lower():
+        if "estadisticassemanales" in href and "Semanal" in href and ".xlsx" in href.lower():
             if not href.startswith("http"):
                 href = "https://www.bcb.gob.bo" + href
             return href
