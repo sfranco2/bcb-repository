@@ -2,7 +2,7 @@ name: Update BCB Data
 
 on:
   schedule:
-    - cron: '0 15 * * 3'
+    - cron: '0 15 * * *'
   workflow_dispatch:
 
 permissions:
