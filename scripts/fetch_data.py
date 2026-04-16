@@ -34,11 +34,12 @@ def get_latest_excel_url():
     soup = BeautifulSoup(resp.text, "html.parser")
     for a in soup.find_all("a", href=True):
         href = a["href"]
-        if "webdocs" in href and ".xlsx" in href.lower():
+        # Only match the weekly "Semanal" statistics files, not other BCB Excel files
+        if "estadisticassemanales" in href and "Semanal" in href and ".xlsx" in href.lower():
             if not href.startswith("http"):
                 href = "https://www.bcb.gob.bo" + href
             return href
-    raise ValueError("No Excel file found on BCB page")
+    raise ValueError("No Semanal weekly Excel file found on BCB page")
 
 
 def download_excel(url):

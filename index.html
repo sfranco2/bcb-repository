@@ -270,6 +270,10 @@
   }
 
   function buildReservesChart(data) {
+    if (!data || data.length === 0) {
+      document.getElementById('reserves-latest').textContent = 'No data';
+      return;
+    }
     const labels = data.map(p => fmtDate(p.date));
     const values = data.map(p => p.value);
 
@@ -322,6 +326,10 @@
   }
 
   function buildExchangeChart(official, market) {
+    if ((!official || official.length === 0) && (!market || market.length === 0)) {
+      document.getElementById('exrate-latest').textContent = 'No data';
+      return;
+    }
     // Merge all dates for a unified x-axis
     const allDates = [...new Set([
       ...official.map(p => p.date),
