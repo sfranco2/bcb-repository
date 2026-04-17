@@ -158,7 +158,7 @@
       <div class="card-header">
         <div>
           <h2>International Reserves — Gross (BCB)</h2>
-          <p>Reservas internacionales brutas del BCB · Millions of USD · Last 5 years</p>
+          <p>Reservas internacionales brutas del BCB · Millions of USD · Since 2000</p>
         </div>
         <span class="stat-pill green" id="reserves-latest">—</span>
       </div>
@@ -302,6 +302,7 @@ function buildReservesChart(reserves, gold) {
   const goldMap = Object.fromEntries((gold || []).map(p => [p.date, p.value]));
 
   const opts = baseOptions('Millions USD');
+  opts.scales.y.min = 0;
   opts.plugins.tooltip.callbacks = {
     label: ctx => ctx.parsed.y !== null
       ? `${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString('en-US', { maximumFractionDigits: 0 })} M`
