@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bolivia Central Bank — Weekly Statistics</title>
+  <title>Bolivia Economic Dashboard</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,152 +15,118 @@
       min-height: 100vh;
     }
 
+    /* ── Header ── */
     header {
       background: #1e3a5f;
       color: #fff;
-      padding: 24px 32px;
+      padding: 22px 32px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 12px;
     }
-
-    header .title-block h1 {
-      font-size: 1.4rem;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-    }
-
-    header .title-block p {
-      font-size: 0.82rem;
-      color: #93c5fd;
-      margin-top: 3px;
-    }
-
-    header .meta {
-      text-align: right;
-      font-size: 0.78rem;
-      color: #93c5fd;
-      line-height: 1.6;
-    }
-
-    header .meta strong {
-      color: #fff;
-    }
-
+    header .title-block h1 { font-size: 1.35rem; font-weight: 700; }
+    header .title-block p  { font-size: 0.8rem; color: #93c5fd; margin-top: 3px; }
+    header .meta { text-align: right; font-size: 0.78rem; color: #93c5fd; line-height: 1.7; }
+    header .meta strong { color: #fff; }
     .badge {
-      display: inline-block;
-      background: #f59e0b;
-      color: #1e293b;
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 999px;
-      margin-left: 8px;
-      vertical-align: middle;
+      display: inline-block; background: #f59e0b; color: #1e293b;
+      font-size: 0.68rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 999px; margin-left: 8px; vertical-align: middle;
     }
 
+    /* ── Tabs ── */
+    .tab-bar {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0 32px;
+      display: flex;
+      gap: 4px;
+    }
+    .tab-btn {
+      padding: 14px 22px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #64748b;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: #1e3a5f; }
+    .tab-btn.active { color: #1e3a5f; border-bottom-color: #1e3a5f; }
+
+    /* ── Main content ── */
     main {
       max-width: 1100px;
       margin: 0 auto;
-      padding: 32px 20px 48px;
-      display: flex;
-      flex-direction: column;
-      gap: 28px;
+      padding: 28px 20px 48px;
     }
 
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Card ── */
     .card {
       background: #fff;
       border-radius: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04);
       padding: 24px 28px 28px;
     }
-
     .card-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 8px;
+      display: flex; align-items: flex-start;
+      justify-content: space-between; flex-wrap: wrap; gap: 8px;
       margin-bottom: 20px;
     }
-
-    .card-header h2 {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .card-header p {
-      font-size: 0.78rem;
-      color: #64748b;
-      margin-top: 3px;
-    }
+    .card-header h2 { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+    .card-header p  { font-size: 0.78rem; color: #64748b; margin-top: 3px; }
 
     .stat-pill {
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 4px 12px;
-      border-radius: 999px;
-      white-space: nowrap;
+      font-size: 0.78rem; font-weight: 600;
+      padding: 4px 12px; border-radius: 999px; white-space: nowrap;
     }
-
     .stat-pill.green  { background: #dcfce7; color: #15803d; }
     .stat-pill.blue   { background: #dbeafe; color: #1d4ed8; }
     .stat-pill.orange { background: #ffedd5; color: #c2410c; }
+    .stat-pill.red    { background: #fee2e2; color: #dc2626; }
 
-    .chart-wrap {
-      position: relative;
-      height: 320px;
-    }
+    .chart-wrap { position: relative; height: 340px; }
 
+    /* ── Legend ── */
     .legend {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-      margin-top: 14px;
+      display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 16px;
     }
-
     .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.78rem;
-      color: #475569;
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.76rem; color: #475569;
     }
-
-    .legend-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      flex-shrink: 0;
+    .legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+    .legend-line {
+      width: 18px; height: 3px; border-radius: 2px; flex-shrink: 0;
     }
 
     .error-msg {
-      color: #dc2626;
-      font-size: 0.85rem;
-      padding: 16px;
-      background: #fef2f2;
-      border-radius: 8px;
+      color: #dc2626; font-size: 0.85rem; padding: 16px;
+      background: #fef2f2; border-radius: 8px;
     }
 
     footer {
-      text-align: center;
-      padding: 0 20px 32px;
-      font-size: 0.75rem;
-      color: #94a3b8;
-      line-height: 1.8;
+      text-align: center; padding: 0 20px 32px;
+      font-size: 0.75rem; color: #94a3b8; line-height: 1.9;
     }
-
     footer a { color: #3b82f6; text-decoration: none; }
     footer a:hover { text-decoration: underline; }
 
     @media (max-width: 600px) {
-      header { padding: 18px 16px; }
-      main { padding: 20px 12px 40px; }
-      .card { padding: 18px 16px 20px; }
-      .chart-wrap { height: 260px; }
+      header { padding: 16px; }
+      .tab-bar { padding: 0 8px; }
+      .tab-btn { padding: 12px 14px; font-size: 0.82rem; }
+      main { padding: 16px 12px 40px; }
+      .card { padding: 16px 14px 20px; }
+      .chart-wrap { height: 270px; }
     }
   </style>
 </head>
@@ -168,8 +134,8 @@
 
 <header>
   <div class="title-block">
-    <h1>Bolivia Central Bank <span class="badge">LIVE</span></h1>
-    <p>Weekly Statistics Dashboard · Banco Central de Bolivia</p>
+    <h1>Bolivia Economic Dashboard <span class="badge">LIVE</span></h1>
+    <p>BCB Weekly Statistics · INE National Accounts</p>
   </div>
   <div class="meta">
     <div>Updated: <strong id="last-updated">Loading…</strong></div>
@@ -177,267 +143,352 @@
   </div>
 </header>
 
+<!-- Tab bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="reserves">Reserves</button>
+  <button class="tab-btn" data-tab="exchange">Exchange Rate</button>
+  <button class="tab-btn" data-tab="gdp">GDP</button>
+</div>
+
 <main>
 
-  <!-- Chart 1: Reserves -->
-  <div class="card">
-    <div class="card-header">
-      <div>
-        <h2>International Reserves — Gross (BCB)</h2>
-        <p>Reservas internacionales brutas del BCB · Millions of USD · Last 5 years</p>
+  <!-- ── Tab: Reserves ── -->
+  <div class="tab-panel active" id="tab-reserves">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>International Reserves — Gross (BCB)</h2>
+          <p>Reservas internacionales brutas del BCB · Millions of USD · Last 5 years</p>
+        </div>
+        <span class="stat-pill green" id="reserves-latest">—</span>
       </div>
-      <span class="stat-pill green" id="reserves-latest">—</span>
-    </div>
-    <div class="chart-wrap">
-      <canvas id="reservesChart"></canvas>
-    </div>
-    <div class="legend">
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#0ea5e9;"></div>
-        <span>Gross International Reserves (M USD)</span>
+      <div class="chart-wrap"><canvas id="reservesChart"></canvas></div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#0ea5e9;"></div>
+          <span>Gross International Reserves (M USD)</span>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Chart 2: Exchange Rate -->
-  <div class="card">
-    <div class="card-header">
-      <div>
-        <h2>Exchange Rate (Bs per USD)</h2>
-        <p>Tipo de cambio · Official Bolsín rate vs. Market Reference rate · Last 5 years</p>
+  <!-- ── Tab: Exchange Rate ── -->
+  <div class="tab-panel" id="tab-exchange">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>Exchange Rate (Bs per USD)</h2>
+          <p>Official Bolsín rate vs. Market Reference rate · From December 2025</p>
+        </div>
+        <span class="stat-pill orange" id="exrate-latest">—</span>
       </div>
-      <span class="stat-pill orange" id="exrate-latest">—</span>
+      <div class="chart-wrap"><canvas id="exchangeChart"></canvas></div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#6366f1;"></div>
+          <span>Official Rate — Bolsín (Bs/$)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#f97316;"></div>
+          <span>Market Reference Rate (Bs/$)</span>
+        </div>
+      </div>
     </div>
-    <div class="chart-wrap">
-      <canvas id="exchangeChart"></canvas>
-    </div>
-    <div class="legend">
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#6366f1;"></div>
-        <span>Official Rate — Bolsín (Bs/$)</span>
+  </div>
+
+  <!-- ── Tab: GDP ── -->
+  <div class="tab-panel" id="tab-gdp">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>GDP Growth &amp; Contributions by Expenditure</h2>
+          <p>Contribución a la variación del PIB · Percentage points · 2018–2024 · Source: INE</p>
+        </div>
+        <span class="stat-pill" id="gdp-latest" style="background:#f0fdf4;color:#15803d;">—</span>
       </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#f97316;"></div>
-        <span>Market Reference Rate (Bs/$)</span>
-      </div>
+      <div class="chart-wrap" style="height:380px;"><canvas id="gdpChart"></canvas></div>
+      <div class="legend" id="gdp-legend"></div>
     </div>
   </div>
 
 </main>
 
 <footer>
-  Data sourced from the <a href="https://www.bcb.gob.bo/?q=estad-sticas-semanales" target="_blank" rel="noopener">Banco Central de Bolivia</a> — updated automatically every Wednesday.
+  BCB weekly data: <a href="https://www.bcb.gob.bo/?q=estad-sticas-semanales" target="_blank" rel="noopener">Banco Central de Bolivia</a> — updated automatically every Wednesday.<br>
+  GDP data: <a href="https://www.ine.gob.bo" target="_blank" rel="noopener">Instituto Nacional de Estadística (INE)</a> — annual release.
 </footer>
 
 <script>
-  const DATA_URL = 'data/data.json';
+const DATA_URL = 'data/data.json';
 
-  const CHART_DEFAULTS = {
+// ── Tab switching ────────────────────────────────────────────────────────────
+const tabBtns   = document.querySelectorAll('.tab-btn');
+const tabPanels = document.querySelectorAll('.tab-panel');
+const chartsInit = {};
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabBtns.forEach(b => b.classList.remove('active'));
+    tabPanels.forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = document.getElementById('tab-' + btn.dataset.tab);
+    panel.classList.add('active');
+    // Lazy-init charts when tab opens
+    if (window._chartBuilders && window._chartBuilders[btn.dataset.tab] && !chartsInit[btn.dataset.tab]) {
+      chartsInit[btn.dataset.tab] = true;
+      window._chartBuilders[btn.dataset.tab]();
+    }
+  });
+});
+
+// ── Chart defaults ───────────────────────────────────────────────────────────
+function baseOptions(yTitle) {
+  return {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#0f172a',
-        titleColor: '#94a3b8',
-        bodyColor: '#f8fafc',
-        padding: 10,
-        cornerRadius: 8,
+        backgroundColor: '#0f172a', titleColor: '#94a3b8',
+        bodyColor: '#f8fafc', padding: 10, cornerRadius: 8,
       },
     },
     scales: {
       x: {
-        type: 'category',
-        ticks: {
-          maxTicksLimit: 10,
-          color: '#64748b',
-          font: { size: 11 },
-          maxRotation: 30,
-        },
+        ticks: { maxTicksLimit: 12, color: '#64748b', font: { size: 11 }, maxRotation: 30 },
         grid: { display: false },
       },
       y: {
+        title: { display: true, text: yTitle, color: '#94a3b8', font: { size: 11 } },
         ticks: { color: '#64748b', font: { size: 11 } },
         grid: { color: '#f1f5f9' },
       },
     },
   };
+}
 
-  function fmtDate(iso) {
-    const d = new Date(iso + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', day: 'numeric' });
+function fmtDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', day: 'numeric' });
+}
+
+// ── Reserves chart ───────────────────────────────────────────────────────────
+function buildReservesChart(data) {
+  if (!data || !data.length) { document.getElementById('reserves-latest').textContent = 'No data'; return; }
+  const latest = data[data.length - 1].value;
+  document.getElementById('reserves-latest').textContent =
+    `Latest: $${latest.toLocaleString('en-US', { maximumFractionDigits: 0 })} M`;
+
+  const opts = baseOptions('Millions USD');
+  opts.plugins.tooltip.callbacks = {
+    label: ctx => `Reserves: $${ctx.parsed.y.toLocaleString('en-US', { maximumFractionDigits: 0 })} M USD`,
+  };
+
+  new Chart(document.getElementById('reservesChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: data.map(p => fmtDate(p.date)),
+      datasets: [{
+        label: 'Gross Reserves (M USD)',
+        data: data.map(p => p.value),
+        borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.08)',
+        borderWidth: 2, pointRadius: data.length > 50 ? 0 : 3,
+        pointHoverRadius: 5, tension: 0.3, fill: true,
+      }],
+    },
+    options: opts,
+  });
+}
+
+// ── Exchange rate chart (starts at market reference start) ───────────────────
+function buildExchangeChart(official, market) {
+  if ((!official || !official.length) && (!market || !market.length)) {
+    document.getElementById('exrate-latest').textContent = 'No data'; return;
   }
 
-  function buildReservesChart(data) {
-    if (!data || data.length === 0) {
-      document.getElementById('reserves-latest').textContent = 'No data';
-      return;
-    }
-    const labels = data.map(p => fmtDate(p.date));
-    const values = data.map(p => p.value);
+  // Only show from the first date market reference is available
+  const firstMktDate = market && market.length ? market[0].date : null;
 
-    const latest = values[values.length - 1];
-    document.getElementById('reserves-latest').textContent =
-      `Latest: $${latest.toLocaleString('en-US', { maximumFractionDigits: 0 })} M`;
+  const filteredOfficial = firstMktDate
+    ? official.filter(p => p.date >= firstMktDate)
+    : official;
 
-    const ctx = document.getElementById('reservesChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Gross Reserves (M USD)',
-          data: values,
-          borderColor: '#0ea5e9',
-          backgroundColor: 'rgba(14,165,233,0.08)',
-          borderWidth: 2,
-          pointRadius: data.length > 50 ? 0 : 3,
-          pointHoverRadius: 5,
-          tension: 0.3,
-          fill: true,
-        }],
-      },
-      options: {
-        ...CHART_DEFAULTS,
-        scales: {
-          ...CHART_DEFAULTS.scales,
-          y: {
-            ...CHART_DEFAULTS.scales.y,
-            title: {
-              display: true,
-              text: 'Millions USD',
-              color: '#94a3b8',
-              font: { size: 11 },
-            },
+  const allDates = [...new Set([
+    ...filteredOfficial.map(p => p.date),
+    ...(market || []).map(p => p.date),
+  ])].sort();
+
+  const offMap = Object.fromEntries((filteredOfficial || []).map(p => [p.date, p.value]));
+  const mktMap = Object.fromEntries((market || []).map(p => [p.date, p.value]));
+
+  const latestMkt = market && market.length ? market[market.length - 1].value : null;
+  document.getElementById('exrate-latest').textContent = latestMkt !== null
+    ? `Market: Bs ${latestMkt.toFixed(2)}/$`
+    : `Official: Bs ${official[official.length - 1].value.toFixed(2)}/$`;
+
+  const opts = baseOptions('Bs per USD');
+  opts.plugins.tooltip.callbacks = {
+    label: ctx => ctx.parsed.y !== null ? `${ctx.dataset.label}: Bs ${ctx.parsed.y.toFixed(4)}` : null,
+  };
+
+  new Chart(document.getElementById('exchangeChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: allDates.map(fmtDate),
+      datasets: [
+        {
+          label: 'Official Rate (Bs/$)',
+          data: allDates.map(d => offMap[d] ?? null),
+          borderColor: '#6366f1', backgroundColor: 'transparent',
+          borderWidth: 2, borderDash: [5, 4],
+          pointRadius: 0, pointHoverRadius: 5, tension: 0, spanGaps: false,
+        },
+        {
+          label: 'Market Reference (Bs/$)',
+          data: allDates.map(d => mktMap[d] ?? null),
+          borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)',
+          borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6,
+          tension: 0.2, fill: true, spanGaps: false,
+        },
+      ],
+    },
+    options: opts,
+  });
+}
+
+// ── GDP chart ────────────────────────────────────────────────────────────────
+function buildGdpChart(gdp) {
+  if (!gdp) { document.getElementById('gdp-latest').textContent = 'No data'; return; }
+
+  const COLORS = {
+    'Household consumption':  '#3b82f6',
+    'Government consumption': '#10b981',
+    'Inventory changes':      '#f59e0b',
+    'Fixed investment':       '#8b5cf6',
+    'Valuables':              '#06b6d4',
+    'Exports':                '#f97316',
+    'Less imports':           '#ef4444',
+  };
+
+  const latest = gdp.total_growth[gdp.total_growth.length - 1];
+  const latestYear = gdp.years[gdp.years.length - 1];
+  const pill = document.getElementById('gdp-latest');
+  pill.textContent = `${latestYear}: ${latest > 0 ? '+' : ''}${latest.toFixed(2)}%`;
+  pill.style.background = latest >= 0 ? '#dcfce7' : '#fee2e2';
+  pill.style.color      = latest >= 0 ? '#15803d' : '#dc2626';
+
+  const barDatasets = Object.entries(gdp.components).map(([name, values]) => ({
+    type: 'bar',
+    label: name,
+    data: values,
+    backgroundColor: COLORS[name] + 'cc',
+    borderColor: COLORS[name],
+    borderWidth: 1,
+    stack: 'contributions',
+  }));
+
+  const lineDataset = {
+    type: 'line',
+    label: 'GDP Growth',
+    data: gdp.total_growth,
+    borderColor: '#0f172a',
+    backgroundColor: 'transparent',
+    borderWidth: 2.5,
+    pointRadius: 5,
+    pointBackgroundColor: '#0f172a',
+    pointHoverRadius: 7,
+    tension: 0.2,
+    order: 0,
+    z: 10,
+  };
+
+  const opts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#0f172a', titleColor: '#94a3b8',
+        bodyColor: '#f8fafc', padding: 10, cornerRadius: 8,
+        callbacks: {
+          label: ctx => {
+            if (ctx.parsed.y === null || ctx.parsed.y === 0) return null;
+            const sign = ctx.parsed.y > 0 ? '+' : '';
+            return `${ctx.dataset.label}: ${sign}${ctx.parsed.y.toFixed(2)} pp`;
           },
         },
-        plugins: {
-          ...CHART_DEFAULTS.plugins,
-          tooltip: {
-            ...CHART_DEFAULTS.plugins.tooltip,
-            callbacks: {
-              label: ctx => `Reserves: $${ctx.parsed.y.toLocaleString('en-US', { maximumFractionDigits: 0 })} M USD`,
-            },
-          },
-        },
       },
-    });
+    },
+    scales: {
+      x: {
+        stacked: true,
+        ticks: { color: '#64748b', font: { size: 12 } },
+        grid: { display: false },
+      },
+      y: {
+        stacked: true,
+        title: { display: true, text: 'Percentage points (pp)', color: '#94a3b8', font: { size: 11 } },
+        ticks: {
+          color: '#64748b', font: { size: 11 },
+          callback: v => v + '%',
+        },
+        grid: { color: '#f1f5f9' },
+      },
+    },
+  };
+
+  new Chart(document.getElementById('gdpChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: gdp.years, datasets: [...barDatasets, lineDataset] },
+    options: opts,
+  });
+
+  // Build legend
+  const legendEl = document.getElementById('gdp-legend');
+  Object.entries(COLORS).forEach(([name, color]) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `<div class="legend-dot" style="background:${color};"></div><span>${name}</span>`;
+    legendEl.appendChild(item);
+  });
+  const gdpLineItem = document.createElement('div');
+  gdpLineItem.className = 'legend-item';
+  gdpLineItem.innerHTML = `<div class="legend-line" style="background:#0f172a;"></div><span>GDP Growth (line)</span>`;
+  legendEl.appendChild(gdpLineItem);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const resp = await fetch(DATA_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const d = new Date(data.last_updated);
+    document.getElementById('last-updated').textContent =
+      d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    document.getElementById('source-file').textContent = data.source_file;
+
+    // Build first tab immediately
+    buildReservesChart(data.reserves);
+    chartsInit['reserves'] = true;
+
+    // Lazy-build other tabs on first open
+    window._chartBuilders = {
+      exchange: () => buildExchangeChart(data.exchange_rate_official, data.exchange_rate_market),
+      gdp:      () => buildGdpChart(data.gdp),
+    };
+
+  } catch (err) {
+    console.error(err);
+    document.querySelector('main').innerHTML =
+      `<div class="error-msg">⚠️ Could not load data: ${err.message}</div>`;
   }
+}
 
-  function buildExchangeChart(official, market) {
-    if ((!official || official.length === 0) && (!market || market.length === 0)) {
-      document.getElementById('exrate-latest').textContent = 'No data';
-      return;
-    }
-    // Merge all dates for a unified x-axis
-    const allDates = [...new Set([
-      ...official.map(p => p.date),
-      ...market.map(p => p.date),
-    ])].sort();
-
-    const offMap = Object.fromEntries(official.map(p => [p.date, p.value]));
-    const mktMap = Object.fromEntries(market.map(p => [p.date, p.value]));
-
-    const labels   = allDates.map(fmtDate);
-    const offVals  = allDates.map(d => offMap[d] ?? null);
-    const mktVals  = allDates.map(d => mktMap[d] ?? null);
-
-    // Latest market rate if available, else official
-    const latestMkt = market.length ? market[market.length - 1].value : null;
-    const latestOff = official.length ? official[official.length - 1].value : null;
-    if (latestMkt !== null) {
-      document.getElementById('exrate-latest').textContent = `Market: Bs ${latestMkt.toFixed(2)}/$`;
-    } else if (latestOff !== null) {
-      document.getElementById('exrate-latest').textContent = `Official: Bs ${latestOff.toFixed(2)}/$`;
-    }
-
-    const ctx = document.getElementById('exchangeChart').getContext('2d');
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Official Rate (Bs/$)',
-            data: offVals,
-            borderColor: '#6366f1',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            borderDash: [5, 4],
-            pointRadius: 0,
-            pointHoverRadius: 5,
-            tension: 0,
-            spanGaps: false,
-          },
-          {
-            label: 'Market Reference (Bs/$)',
-            data: mktVals,
-            borderColor: '#f97316',
-            backgroundColor: 'rgba(249,115,22,0.08)',
-            borderWidth: 2.5,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            tension: 0.2,
-            fill: true,
-            spanGaps: false,
-          },
-        ],
-      },
-      options: {
-        ...CHART_DEFAULTS,
-        scales: {
-          ...CHART_DEFAULTS.scales,
-          y: {
-            ...CHART_DEFAULTS.scales.y,
-            title: {
-              display: true,
-              text: 'Bs per USD',
-              color: '#94a3b8',
-              font: { size: 11 },
-            },
-          },
-        },
-        plugins: {
-          ...CHART_DEFAULTS.plugins,
-          tooltip: {
-            ...CHART_DEFAULTS.plugins.tooltip,
-            callbacks: {
-              label: ctx => {
-                const v = ctx.parsed.y;
-                if (v === null) return null;
-                return `${ctx.dataset.label}: Bs ${v.toFixed(4)}`;
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
-  async function init() {
-    try {
-      const resp = await fetch(DATA_URL);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-
-      // Header meta
-      const d = new Date(data.last_updated);
-      document.getElementById('last-updated').textContent =
-        d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-      document.getElementById('source-file').textContent = data.source_file;
-
-      buildReservesChart(data.reserves);
-      buildExchangeChart(data.exchange_rate_official, data.exchange_rate_market);
-
-    } catch (err) {
-      console.error(err);
-      document.querySelector('main').innerHTML =
-        `<div class="error-msg">⚠️ Could not load data. Make sure <code>data/data.json</code> exists and you're serving the site over HTTP (not file://).<br><br><small>${err.message}</small></div>`;
-    }
-  }
-
-  init();
+init();
 </script>
 </body>
 </html>

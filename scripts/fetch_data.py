@@ -11,7 +11,8 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-BCB_PAGE = "https://www.bcb.gob.bo/?q=estad-sticas-semanales"
+BCB_PAGE   = "https://www.bcb.gob.bo/?q=estad-sticas-semanales"
+INE_GDP_URL = "https://www.ine.gob.bo/referencia2017/CUADROS/pagina_web/2.7.4.xlsx"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -106,6 +107,44 @@ def parse_excel(path):
     return reserves, tc_official, tc_market
 
 
+def fetch_gdp_data():
+    """Download and parse INE GDP contributions table."""
+    resp = requests.get(INE_GDP_URL, headers=HEADERS, timeout=60)
+    resp.raise_for_status()
+    tmp = "/tmp/ine_gdp.xlsx"
+    with open(tmp, "wb") as f:
+        f.write(resp.content)
+
+    df = pd.read_excel(tmp, sheet_name=0, header=None)
+
+    years = []
+    for v in df.iloc[10, 2:9]:
+        if isinstance(v, float) and not pd.isna(v):
+            years.append(str(int(v)))
+        else:
+            years.append(str(v).strip())
+
+    def row_vals(row_idx):
+        return [round(float(v), 4) if pd.notna(v) else None for v in df.iloc[row_idx, 2:9]]
+
+    imports_raw = row_vals(20)
+    imports_neg = [(-v if v is not None else None) for v in imports_raw]
+
+    return {
+        "years": years,
+        "total_growth": row_vals(12),
+        "components": {
+            "Household consumption":  row_vals(14),
+            "Government consumption": row_vals(15),
+            "Inventory changes":      row_vals(16),
+            "Fixed investment":       row_vals(17),
+            "Valuables":              row_vals(18),
+            "Exports":                row_vals(19),
+            "Less imports":           imports_neg,
+        },
+    }
+
+
 def main():
     print("Fetching latest Excel URL from BCB...")
     url = get_latest_excel_url()
@@ -115,8 +154,16 @@ def main():
     print(f"Downloading {filename}...")
     path = download_excel(url)
 
-    print("Parsing data...")
+    print("Parsing BCB data...")
     reserves, tc_official, tc_market = parse_excel(path)
+
+    print("Fetching INE GDP data...")
+    try:
+        gdp = fetch_gdp_data()
+        print(f"GDP data: {len(gdp['years'])} years")
+    except Exception as e:
+        print(f"Warning: could not fetch GDP data: {e}")
+        gdp = None
 
     os.makedirs(DATA_DIR, exist_ok=True)
     output = {
@@ -126,6 +173,7 @@ def main():
         "reserves": reserves,
         "exchange_rate_official": tc_official,
         "exchange_rate_market": tc_market,
+        "gdp": gdp,
     }
 
     out_path = os.path.join(DATA_DIR, "data.json")
