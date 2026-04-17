@@ -21,7 +21,8 @@ HEADERS = {
 }
 
 # Row indices (0-based) in the Excel sheet
-ROW_RESERVES   = 6   # Reservas internacionales brutas del BCB (millions USD)
+ROW_RESERVES    = 6   # Reservas internacionales brutas del BCB (millions USD)
+ROW_GOLD        = 9   # Oro (gold reserves, millions USD)
 ROW_TC_OFFICIAL = 82  # Tipo de cambio de venta en el Bolsín (Bs/$us)
 ROW_TC_MARKET   = 84  # Valor referencial de venta del dólar estadounidense (Bs/$us)
 
@@ -76,6 +77,7 @@ def parse_excel(path):
     cutoff = datetime.now() - timedelta(days=YEARS_BACK * 365)
 
     reserves = []
+    gold = []
     tc_official = []
     tc_market = []
 
@@ -96,6 +98,10 @@ def parse_excel(path):
         if r is not None:
             reserves.append({"date": date_str, "value": round(r, 2)})
 
+        g = parse_value(df.iloc[ROW_GOLD, 3 + i])
+        if g is not None:
+            gold.append({"date": date_str, "value": round(g, 2)})
+
         tc_off = parse_value(df.iloc[ROW_TC_OFFICIAL, 3 + i])
         if tc_off is not None:
             tc_official.append({"date": date_str, "value": round(tc_off, 4)})
@@ -104,7 +110,7 @@ def parse_excel(path):
         if tc_mkt is not None and 1.0 < tc_mkt < 100.0:
             tc_market.append({"date": date_str, "value": round(tc_mkt, 4)})
 
-    return reserves, tc_official, tc_market
+    return reserves, gold, tc_official, tc_market
 
 
 def fetch_gdp_data():
@@ -155,7 +161,7 @@ def main():
     path = download_excel(url)
 
     print("Parsing BCB data...")
-    reserves, tc_official, tc_market = parse_excel(path)
+    reserves, gold, tc_official, tc_market = parse_excel(path)
 
     print("Fetching INE GDP data...")
     try:
@@ -171,6 +177,7 @@ def main():
         "source_file": filename,
         "source_url": url,
         "reserves": reserves,
+        "gold": gold,
         "exchange_rate_official": tc_official,
         "exchange_rate_market": tc_market,
         "gdp": gdp,
