@@ -13,6 +13,11 @@ from bs4 import BeautifulSoup
 
 BCB_PAGE   = "https://www.bcb.gob.bo/?q=estad-sticas-semanales"
 INE_GDP_URL = "https://www.ine.gob.bo/referencia2017/CUADROS/pagina_web/2.7.4.xlsx"
+PARALLEL_CSV_URL = (
+    "https://docs.google.com/spreadsheets/d/e/"
+    "2PACX-1vR2lRBAKrqBFtv_Y8glwaBq28banI80eg3wTOE9Y63LR8iVOjVhpxS3dpeBiqREYM3z1TgA0fdg_h7B"
+    "/pub?gid=0&single=true&output=csv"
+)
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -116,6 +121,74 @@ def parse_excel(path):
     return reserves, gold, tc_official, tc_market
 
 
+def fetch_parallel_rate():
+    """Fetch parallel (black market) USD/BOB exchange rate from Google Sheets CSV."""
+    from io import StringIO
+    resp = requests.get(PARALLEL_CSV_URL, timeout=30)
+    resp.raise_for_status()
+
+    df = pd.read_csv(StringIO(resp.text))
+    print(f"Parallel CSV columns: {list(df.columns)}")
+    print(df.head(3).to_string())
+
+    # Detect date column (try common Spanish/English names)
+    date_col = None
+    for col in df.columns:
+        if col.strip().lower() in ("fecha", "date", "datetime", "dia", "time", "periodo"):
+            date_col = col
+            break
+    if date_col is None:
+        # Fall back: first column whose first value looks like a date
+        for col in df.columns:
+            try:
+                pd.to_datetime(str(df[col].iloc[0]))
+                date_col = col
+                break
+            except Exception:
+                pass
+
+    # Detect rate column — prefer sell-side (venta) over buy-side (compra)
+    rate_col = None
+    for col in df.columns:
+        if col.strip().lower() in ("venta", "sell", "venta_usd", "precio_venta",
+                                   "paralelo", "value", "rate", "precio", "valor"):
+            rate_col = col
+            break
+    if rate_col is None:
+        # Fall back: first numeric column that isn't the date column
+        for col in df.select_dtypes(include="number").columns:
+            if col != date_col:
+                rate_col = col
+                break
+        if rate_col is None and len(df.columns) > 1:
+            rate_col = df.columns[1]
+
+    if date_col is None or rate_col is None:
+        raise ValueError(f"Cannot identify date/rate columns. Found: {list(df.columns)}")
+
+    print(f"Using date_col='{date_col}', rate_col='{rate_col}'")
+
+    result = []
+    for _, row in df.iterrows():
+        try:
+            d = pd.to_datetime(str(row[date_col]))
+            v = float(str(row[rate_col]).replace(",", "."))
+            if pd.isna(v) or v < 1.0 or v > 1000.0:
+                continue
+            result.append({"date": d.strftime("%Y-%m-%d"), "value": round(v, 4)})
+        except Exception:
+            continue
+
+    # Deduplicate by date (keep last) and sort
+    seen = {}
+    for p in result:
+        seen[p["date"]] = p["value"]
+    result = [{"date": d, "value": v} for d, v in sorted(seen.items())]
+
+    print(f"Parallel rate: {len(result)} data points")
+    return result
+
+
 def fetch_gdp_data():
     """Download and parse INE GDP contributions table."""
     resp = requests.get(INE_GDP_URL, headers=HEADERS, timeout=60)
@@ -166,6 +239,14 @@ def main():
     print("Parsing BCB data...")
     reserves, gold, tc_official, tc_market = parse_excel(path)
 
+    print("Fetching parallel exchange rate (dolarbluebolivia)...")
+    try:
+        tc_parallel = fetch_parallel_rate()
+        print(f"Parallel rate: {len(tc_parallel)} points")
+    except Exception as e:
+        print(f"Warning: could not fetch parallel rate data: {e}")
+        tc_parallel = None
+
     print("Fetching INE GDP data...")
     try:
         gdp = fetch_gdp_data()
@@ -183,6 +264,7 @@ def main():
         "gold": gold,
         "exchange_rate_official": tc_official,
         "exchange_rate_market": tc_market,
+        "exchange_rate_parallel": tc_parallel,
         "gdp": gdp,
     }
 
@@ -192,7 +274,8 @@ def main():
 
     print(f"Saved {len(reserves)} reserve points, "
           f"{len(tc_official)} official rate points, "
-          f"{len(tc_market)} market rate points")
+          f"{len(tc_market)} market rate points, "
+          f"{len(tc_parallel) if tc_parallel else 0} parallel rate points")
     print(f"Output: {out_path}")
 
 
