@@ -169,6 +169,10 @@
           <span>Total Gross Reserves (M USD)</span>
         </div>
         <div class="legend-item">
+          <div class="legend-dot" style="background:#6366f1;"></div>
+          <span>Foreign Exchange — Divisas (M USD)</span>
+        </div>
+        <div class="legend-item">
           <div class="legend-dot" style="background:#f59e0b;"></div>
           <span>Gold Reserves (M USD)</span>
         </div>
@@ -298,14 +302,16 @@ function fmtDate(iso) {
 }
 
 // ── Reserves chart ───────────────────────────────────────────────────────────
-function buildReservesChart(reserves, gold) {
+function buildReservesChart(reserves, fx, gold) {
   if (!reserves || !reserves.length) { document.getElementById('reserves-latest').textContent = 'No data'; return; }
   const latest = reserves[reserves.length - 1].value;
   document.getElementById('reserves-latest').textContent =
     `Latest: $${latest.toLocaleString('en-US', { maximumFractionDigits: 0 })} M`;
 
+  const fxMap   = Object.fromEntries((fx   || []).map(p => [p.date, p.value]));
   const goldMap = Object.fromEntries((gold || []).map(p => [p.date, p.value]));
 
+  const dots = reserves.length > 50 ? 0 : 3;
   const opts = baseOptions('Millions USD');
   opts.scales.y.min = 0;
   opts.plugins.tooltip.callbacks = {
@@ -323,15 +329,22 @@ function buildReservesChart(reserves, gold) {
           label: 'Total Gross Reserves',
           data: reserves.map(p => p.value),
           borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.08)',
-          borderWidth: 2, pointRadius: reserves.length > 50 ? 0 : 3,
-          pointHoverRadius: 5, tension: 0.3, fill: true,
+          borderWidth: 2, pointRadius: dots, pointHoverRadius: 5,
+          tension: 0.3, fill: true,
+        },
+        {
+          label: 'Foreign Exchange (Divisas)',
+          data: reserves.map(p => fxMap[p.date] ?? null),
+          borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.07)',
+          borderWidth: 2, pointRadius: dots, pointHoverRadius: 5,
+          tension: 0.3, fill: true, spanGaps: false,
         },
         {
           label: 'Gold Reserves',
           data: reserves.map(p => goldMap[p.date] ?? null),
           borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)',
-          borderWidth: 2, pointRadius: reserves.length > 50 ? 0 : 3,
-          pointHoverRadius: 5, tension: 0.3, fill: true, spanGaps: false,
+          borderWidth: 2, pointRadius: dots, pointHoverRadius: 5,
+          tension: 0.3, fill: true, spanGaps: false,
         },
       ],
     },
@@ -532,7 +545,7 @@ async function init() {
     document.getElementById('source-file').textContent = data.source_file;
 
     // Build first tab immediately
-    buildReservesChart(data.reserves, data.gold);
+    buildReservesChart(data.reserves, data.fx, data.gold);
     chartsInit['reserves'] = true;
 
     // Lazy-build other tabs on first open
