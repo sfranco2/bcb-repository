@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-04-23T17:25:10Z",
+  "last_updated": "2026-04-24T15:59:28Z",
   "source_file": "Semanal%2016_2026.xlsx",
   "source_url": "https://www.bcb.gob.bo/webdocs/05_estadisticassemanales/Semanal%2016_2026.xlsx",
   "reserves": [
@@ -6623,6 +6623,10 @@
     },
     {
       "date": "2026-04-23",
+      "value": 6.86
+    },
+    {
+      "date": "2026-04-24",
       "value": 6.86
     },
     {
