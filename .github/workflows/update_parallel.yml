@@ -1,16 +1,16 @@
-name: Update BCB Data
+name: Update Parallel Rate
 
 on:
   schedule:
-    # Every Thursday at 12:00 UTC (08:00 Bolivia time, UTC-4)
-    - cron: '0 12 * * 4'
+    # Every day at 12:00 UTC (08:00 Bolivia time, UTC-4)
+    - cron: '0 12 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  update-data:
+  update-parallel:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,20 +23,20 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pandas openpyxl beautifulsoup4
+        run: pip install requests pandas
 
-      - name: Fetch BCB data
-        run: python scripts/fetch_data.py
+      - name: Fetch parallel exchange rate
+        run: python scripts/fetch_parallel.py
 
       - name: Commit and push if data changed
         run: |
           git config user.name  "BCB Dashboard Bot"
           git config user.email "bot@users.noreply.github.com"
-          git add data/data.json
+          git add data/parallel.json
           if git diff --staged --quiet; then
-            echo "No changes to commit — data is already up to date."
+            echo "No changes to commit — parallel rate is already up to date."
           else
-            git commit -m "chore: update BCB data $(date -u +'%Y-%m-%d')"
+            git commit -m "chore: update parallel rate $(date -u +'%Y-%m-%d')"
             git pull --rebase
             git push
           fi

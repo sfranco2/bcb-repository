@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Fetch the latest BCB weekly statistics Excel file and extract
-reserves and exchange rate data into data/data.json
+Fetch the latest BCB weekly statistics Excel file and extract:
+  - International reserves (total, FX, gold) since 2000
+  - Exchange rates (official Bolsín, market reference) — last 5 years
+  - Monetary aggregates (Base, M'1, M'2, M'3) since 2000
+Output: data/data.json
 """
 import json
 import os
@@ -11,13 +14,8 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-BCB_PAGE   = "https://www.bcb.gob.bo/?q=estad-sticas-semanales"
+BCB_PAGE    = "https://www.bcb.gob.bo/?q=estad-sticas-semanales"
 INE_GDP_URL = "https://www.ine.gob.bo/referencia2017/CUADROS/pagina_web/2.7.4.xlsx"
-PARALLEL_CSV_URL = (
-    "https://docs.google.com/spreadsheets/d/e/"
-    "2PACX-1vR2lRBAKrqBFtv_Y8glwaBq28banI80eg3wTOE9Y63LR8iVOjVhpxS3dpeBiqREYM3z1TgA0fdg_h7B"
-    "/pub?gid=0&single=true&output=csv"
-)
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -31,9 +29,13 @@ ROW_FX          = 7   # Divisas / Foreign exchange reserves (millions USD)
 ROW_GOLD        = 9   # Oro (gold reserves, millions USD)
 ROW_TC_OFFICIAL = 82  # Tipo de cambio de venta en el Bolsín (Bs/$us)
 ROW_TC_MARKET   = 84  # Valor referencial de venta del dólar estadounidense (Bs/$us)
+ROW_MON_BASE    = 26  # Base monetaria (millions Bs)
+ROW_M1          = 35  # M'1 (millions Bs)
+ROW_M2          = 36  # M'2 (millions Bs)
+ROW_M3          = 37  # M'3 (millions Bs)
 
 YEARS_BACK = 5                          # for exchange rate data
-RESERVES_CUTOFF = datetime(2000, 1, 1)  # reserves and gold go back to 2000
+RESERVES_CUTOFF = datetime(2000, 1, 1)  # reserves, gold, monetary data go back to 2000
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 
 
@@ -81,13 +83,17 @@ def parse_excel(path):
     row2 = df.iloc[2, 3:]
     row3 = df.iloc[3, 3:]
 
-    tc_cutoff  = datetime.now() - timedelta(days=YEARS_BACK * 365)
+    tc_cutoff = datetime.now() - timedelta(days=YEARS_BACK * 365)
 
-    reserves = []
-    fx = []
-    gold = []
+    reserves   = []
+    fx         = []
+    gold       = []
     tc_official = []
-    tc_market = []
+    tc_market   = []
+    mon_base    = []
+    m1          = []
+    m2          = []
+    m3          = []
 
     for i in range(len(row2)):
         # Prefer row3 (actual weekly dates) over row2 (monthly dates / "Semana X" labels)
@@ -115,6 +121,22 @@ def parse_excel(path):
             if g is not None:
                 gold.append({"date": date_str, "value": round(g, 2)})
 
+            mb = parse_value(df.iloc[ROW_MON_BASE, 3 + i])
+            if mb is not None:
+                mon_base.append({"date": date_str, "value": round(mb, 2)})
+
+            v1 = parse_value(df.iloc[ROW_M1, 3 + i])
+            if v1 is not None:
+                m1.append({"date": date_str, "value": round(v1, 2)})
+
+            v2 = parse_value(df.iloc[ROW_M2, 3 + i])
+            if v2 is not None:
+                m2.append({"date": date_str, "value": round(v2, 2)})
+
+            v3 = parse_value(df.iloc[ROW_M3, 3 + i])
+            if v3 is not None:
+                m3.append({"date": date_str, "value": round(v3, 2)})
+
         if d >= tc_cutoff:
             tc_off = parse_value(df.iloc[ROW_TC_OFFICIAL, 3 + i])
             if tc_off is not None:
@@ -124,75 +146,7 @@ def parse_excel(path):
             if tc_mkt is not None and 1.0 < tc_mkt < 100.0:
                 tc_market.append({"date": date_str, "value": round(tc_mkt, 4)})
 
-    return reserves, fx, gold, tc_official, tc_market
-
-
-def fetch_parallel_rate():
-    """Fetch parallel (black market) USD/BOB exchange rate from Google Sheets CSV."""
-    from io import StringIO
-    resp = requests.get(PARALLEL_CSV_URL, timeout=30)
-    resp.raise_for_status()
-
-    df = pd.read_csv(StringIO(resp.text))
-    print(f"Parallel CSV columns: {list(df.columns)}")
-    print(df.head(3).to_string())
-
-    # Detect date column (try common Spanish/English names)
-    date_col = None
-    for col in df.columns:
-        if col.strip().lower() in ("fecha", "date", "datetime", "dia", "time", "periodo"):
-            date_col = col
-            break
-    if date_col is None:
-        # Fall back: first column whose first value looks like a date
-        for col in df.columns:
-            try:
-                pd.to_datetime(str(df[col].iloc[0]))
-                date_col = col
-                break
-            except Exception:
-                pass
-
-    # Detect rate column — prefer sell-side (venta) over buy-side (compra)
-    rate_col = None
-    for col in df.columns:
-        if col.strip().lower() in ("venta", "sell", "venta_usd", "precio_venta",
-                                   "paralelo", "value", "rate", "precio", "valor"):
-            rate_col = col
-            break
-    if rate_col is None:
-        # Fall back: first numeric column that isn't the date column
-        for col in df.select_dtypes(include="number").columns:
-            if col != date_col:
-                rate_col = col
-                break
-        if rate_col is None and len(df.columns) > 1:
-            rate_col = df.columns[1]
-
-    if date_col is None or rate_col is None:
-        raise ValueError(f"Cannot identify date/rate columns. Found: {list(df.columns)}")
-
-    print(f"Using date_col='{date_col}', rate_col='{rate_col}'")
-
-    result = []
-    for _, row in df.iterrows():
-        try:
-            d = pd.to_datetime(str(row[date_col]))
-            v = float(str(row[rate_col]).replace(",", "."))
-            if pd.isna(v) or v < 1.0 or v > 1000.0:
-                continue
-            result.append({"date": d.strftime("%Y-%m-%d"), "value": round(v, 4)})
-        except Exception:
-            continue
-
-    # Deduplicate by date (keep last) and sort
-    seen = {}
-    for p in result:
-        seen[p["date"]] = p["value"]
-    result = [{"date": d, "value": v} for d, v in sorted(seen.items())]
-
-    print(f"Parallel rate: {len(result)} data points")
-    return result
+    return reserves, fx, gold, tc_official, tc_market, mon_base, m1, m2, m3
 
 
 def fetch_gdp_data():
@@ -243,15 +197,7 @@ def main():
     path = download_excel(url)
 
     print("Parsing BCB data...")
-    reserves, fx, gold, tc_official, tc_market = parse_excel(path)
-
-    print("Fetching parallel exchange rate (dolarbluebolivia)...")
-    try:
-        tc_parallel = fetch_parallel_rate()
-        print(f"Parallel rate: {len(tc_parallel)} points")
-    except Exception as e:
-        print(f"Warning: could not fetch parallel rate data: {e}")
-        tc_parallel = None
+    reserves, fx, gold, tc_official, tc_market, mon_base, m1, m2, m3 = parse_excel(path)
 
     print("Fetching INE GDP data...")
     try:
@@ -271,7 +217,10 @@ def main():
         "gold": gold,
         "exchange_rate_official": tc_official,
         "exchange_rate_market": tc_market,
-        "exchange_rate_parallel": tc_parallel,
+        "monetary_base": mon_base,
+        "m1": m1,
+        "m2": m2,
+        "m3": m3,
         "gdp": gdp,
     }
 
@@ -279,10 +228,9 @@ def main():
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"Saved {len(reserves)} reserve points, {len(fx)} FX points, {len(gold)} gold points, "
-          f"{len(tc_official)} official rate points, "
-          f"{len(tc_market)} market rate points, "
-          f"{len(tc_parallel) if tc_parallel else 0} parallel rate points")
+    print(f"Saved {len(reserves)} reserve pts, {len(fx)} FX pts, {len(gold)} gold pts, "
+          f"{len(mon_base)} monetary base pts, {len(m1)} M'1 pts, "
+          f"{len(tc_official)} official rate pts, {len(tc_market)} market rate pts")
     print(f"Output: {out_path}")
 
 

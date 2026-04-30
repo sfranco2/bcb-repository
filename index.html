@@ -75,7 +75,9 @@
       border-radius: 12px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04);
       padding: 24px 28px 28px;
+      margin-bottom: 24px;
     }
+    .card:last-child { margin-bottom: 0; }
     .card-header {
       display: flex; align-items: flex-start;
       justify-content: space-between; flex-wrap: wrap; gap: 8px;
@@ -92,6 +94,7 @@
     .stat-pill.blue   { background: #dbeafe; color: #1d4ed8; }
     .stat-pill.orange { background: #ffedd5; color: #c2410c; }
     .stat-pill.red    { background: #fee2e2; color: #dc2626; }
+    .stat-pill.purple { background: #f3e8ff; color: #7e22ce; }
 
     .chart-wrap { position: relative; height: 340px; }
 
@@ -138,8 +141,8 @@
     <p>BCB Weekly Statistics · INE National Accounts</p>
   </div>
   <div class="meta">
-    <div>Updated: <strong id="last-updated">Loading…</strong></div>
-    <div>Source: <strong id="source-file">—</strong></div>
+    <div>BCB updated: <strong id="last-updated">Loading…</strong></div>
+    <div>Parallel rate: <strong id="parallel-updated">Loading…</strong></div>
   </div>
 </header>
 
@@ -147,6 +150,7 @@
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="reserves">Reserves</button>
   <button class="tab-btn" data-tab="exchange">Exchange Rate</button>
+  <button class="tab-btn" data-tab="monetary">Monetary Policy</button>
   <button class="tab-btn" data-tab="gdp">GDP</button>
 </div>
 
@@ -182,11 +186,12 @@
 
   <!-- ── Tab: Exchange Rate ── -->
   <div class="tab-panel" id="tab-exchange">
+    <!-- Card 1: Official + Market Reference (BCB weekly) -->
     <div class="card">
       <div class="card-header">
         <div>
-          <h2>Exchange Rate (Bs per USD)</h2>
-          <p>Official Bolsín · Market Reference · Parallel (black market) · Source: BCB &amp; dolarbluebolivia.click</p>
+          <h2>Exchange Rate — Official &amp; Market Reference (Bs per USD)</h2>
+          <p>Official Bolsín rate &amp; Market Reference rate · Source: BCB · Updated Thursdays</p>
         </div>
         <span class="stat-pill orange" id="exrate-latest">—</span>
       </div>
@@ -200,9 +205,55 @@
           <div class="legend-dot" style="background:#f97316;"></div>
           <span>Market Reference Rate (Bs/$)</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Parallel Rate (daily) -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>Parallel Exchange Rate (Bs per USD)</h2>
+          <p>Black market / informal rate · Source: dolarbluebolivia.click · Updated daily</p>
+        </div>
+        <span class="stat-pill purple" id="parallel-latest">—</span>
+      </div>
+      <div class="chart-wrap"><canvas id="parallelChart"></canvas></div>
+      <div class="legend">
         <div class="legend-item">
           <div class="legend-dot" style="background:#10b981;"></div>
           <span>Parallel Rate (Bs/$)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Monetary Policy ── -->
+  <div class="tab-panel" id="tab-monetary">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>Monetary Aggregates (BCB)</h2>
+          <p>Base monetaria, M'1, M'2, M'3 · Millions of Bolivianos (Bs) · Since 2000</p>
+        </div>
+        <span class="stat-pill blue" id="monetary-latest">—</span>
+      </div>
+      <div class="chart-wrap" style="height:380px;"><canvas id="monetaryChart"></canvas></div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#0f172a;"></div>
+          <span>Monetary Base (Bs)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#0ea5e9;"></div>
+          <span>M'1 (Bs)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#10b981;"></div>
+          <span>M'2 (Bs)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#f97316;"></div>
+          <span>M'3 (Bs)</span>
         </div>
       </div>
     </div>
@@ -226,13 +277,14 @@
 </main>
 
 <footer>
-  BCB weekly data: <a href="https://www.bcb.gob.bo/?q=estad-sticas-semanales" target="_blank" rel="noopener">Banco Central de Bolivia</a> — updated automatically every Wednesday.<br>
-  Parallel rate: <a href="https://www.dolarbluebolivia.click" target="_blank" rel="noopener">dolarbluebolivia.click</a> — updated with each weekly run.
+  BCB weekly data: <a href="https://www.bcb.gob.bo/?q=estad-sticas-semanales" target="_blank" rel="noopener">Banco Central de Bolivia</a> — updated automatically every Thursday at 8:00 AM (Bolivia time).<br>
+  Parallel rate: <a href="https://www.dolarbluebolivia.click" target="_blank" rel="noopener">dolarbluebolivia.click</a> — updated daily.<br>
   GDP data: <a href="https://www.ine.gob.bo" target="_blank" rel="noopener">Instituto Nacional de Estadística (INE)</a> — annual release.
 </footer>
 
 <script>
-const DATA_URL = 'data/data.json';
+const DATA_URL     = 'data/data.json';
+const PARALLEL_URL = 'data/parallel.json';
 
 // GDP data hardcoded — source: INE Bolivia, Cuadro 2.7.4 (updated annually)
 const GDP_DATA = {
@@ -352,46 +404,30 @@ function buildReservesChart(reserves, fx, gold) {
   });
 }
 
-// ── Exchange rate chart ──────────────────────────────────────────────────────
-function buildExchangeChart(official, market, parallel) {
-  const hasOfficial = official && official.length;
-  const hasMarket   = market   && market.length;
-  const hasParallel = parallel && parallel.length;
-
-  if (!hasOfficial && !hasMarket && !hasParallel) {
+// ── Exchange rate chart (Official + Market Reference) ────────────────────────
+function buildExchangeChart(official, market) {
+  if ((!official || !official.length) && (!market || !market.length)) {
     document.getElementById('exrate-latest').textContent = 'No data'; return;
   }
 
-  // Start date = earliest of parallel or market reference (whichever exists)
-  const firstParallelDate = hasParallel ? parallel[0].date : null;
-  const firstMktDate      = hasMarket   ? market[0].date   : null;
-  const startDate = [firstParallelDate, firstMktDate].filter(Boolean).sort()[0] || null;
-
-  const filteredOfficial = startDate && hasOfficial
-    ? official.filter(p => p.date >= startDate)
+  // Show from first market reference date
+  const firstMktDate = market && market.length ? market[0].date : null;
+  const filteredOfficial = firstMktDate
+    ? (official || []).filter(p => p.date >= firstMktDate)
     : (official || []);
 
   const allDates = [...new Set([
     ...filteredOfficial.map(p => p.date),
-    ...(market   || []).map(p => p.date),
-    ...(parallel || []).map(p => p.date),
+    ...(market || []).map(p => p.date),
   ])].sort();
 
   const offMap = Object.fromEntries(filteredOfficial.map(p => [p.date, p.value]));
-  const mktMap = Object.fromEntries((market   || []).map(p => [p.date, p.value]));
-  const parMap = Object.fromEntries((parallel || []).map(p => [p.date, p.value]));
+  const mktMap = Object.fromEntries((market || []).map(p => [p.date, p.value]));
 
-  // Latest label: prefer parallel > market > official
-  const latestPar = hasParallel ? parallel[parallel.length - 1].value : null;
-  const latestMkt = hasMarket   ? market[market.length - 1].value     : null;
-  if (latestPar !== null) {
-    document.getElementById('exrate-latest').textContent = `Parallel: Bs ${latestPar.toFixed(2)}/$`;
-  } else if (latestMkt !== null) {
-    document.getElementById('exrate-latest').textContent = `Market: Bs ${latestMkt.toFixed(2)}/$`;
-  } else {
-    document.getElementById('exrate-latest').textContent =
-      `Official: Bs ${official[official.length - 1].value.toFixed(2)}/$`;
-  }
+  const latestMkt = market && market.length ? market[market.length - 1].value : null;
+  document.getElementById('exrate-latest').textContent = latestMkt !== null
+    ? `Market: Bs ${latestMkt.toFixed(2)}/$`
+    : (official && official.length ? `Official: Bs ${official[official.length - 1].value.toFixed(2)}/$` : '—');
 
   const opts = baseOptions('Bs per USD');
   opts.plugins.tooltip.callbacks = {
@@ -415,14 +451,114 @@ function buildExchangeChart(official, market, parallel) {
           data: allDates.map(d => mktMap[d] ?? null),
           borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)',
           borderWidth: 2.5, pointRadius: allDates.length > 60 ? 0 : 4,
-          pointHoverRadius: 6, tension: 0.2, fill: false, spanGaps: false,
+          pointHoverRadius: 6, tension: 0.2, fill: true, spanGaps: false,
         },
+      ],
+    },
+    options: opts,
+  });
+}
+
+// ── Parallel rate chart ──────────────────────────────────────────────────────
+function buildParallelChart(parallel) {
+  if (!parallel || !parallel.length) {
+    document.getElementById('parallel-latest').textContent = 'No data'; return;
+  }
+
+  const latest = parallel[parallel.length - 1].value;
+  document.getElementById('parallel-latest').textContent = `Bs ${latest.toFixed(2)}/$`;
+
+  const dots = parallel.length > 60 ? 0 : 3;
+  const opts = baseOptions('Bs per USD');
+  opts.scales.y.min = 0;
+  opts.plugins.tooltip.callbacks = {
+    label: ctx => ctx.parsed.y !== null ? `Parallel Rate: Bs ${ctx.parsed.y.toFixed(4)}` : null,
+  };
+
+  new Chart(document.getElementById('parallelChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: parallel.map(p => fmtDate(p.date)),
+      datasets: [
         {
           label: 'Parallel Rate (Bs/$)',
-          data: allDates.map(d => parMap[d] ?? null),
-          borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)',
-          borderWidth: 2.5, pointRadius: allDates.length > 60 ? 0 : 3,
-          pointHoverRadius: 6, tension: 0.2, fill: true, spanGaps: false,
+          data: parallel.map(p => p.value),
+          borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.10)',
+          borderWidth: 2.5, pointRadius: dots, pointHoverRadius: 6,
+          tension: 0.2, fill: true,
+        },
+      ],
+    },
+    options: opts,
+  });
+}
+
+// ── Monetary aggregates chart ────────────────────────────────────────────────
+function buildMonetaryChart(monBase, m1, m2, m3) {
+  const hasSome = (monBase && monBase.length) || (m3 && m3.length);
+  if (!hasSome) { document.getElementById('monetary-latest').textContent = 'No data'; return; }
+
+  const ref = m3 && m3.length ? m3 : monBase;
+  const latestVal = ref[ref.length - 1].value;
+  document.getElementById('monetary-latest').textContent =
+    `M'3: Bs ${latestVal.toLocaleString('en-US', { maximumFractionDigits: 0 })} M`;
+
+  // Build merged date axis from base (densest series)
+  const baseDates = (monBase || []).map(p => p.date);
+  const allDates  = [...new Set([
+    ...baseDates,
+    ...(m1 || []).map(p => p.date),
+    ...(m2 || []).map(p => p.date),
+    ...(m3 || []).map(p => p.date),
+  ])].sort();
+
+  const mbMap = Object.fromEntries((monBase || []).map(p => [p.date, p.value]));
+  const m1Map = Object.fromEntries((m1      || []).map(p => [p.date, p.value]));
+  const m2Map = Object.fromEntries((m2      || []).map(p => [p.date, p.value]));
+  const m3Map = Object.fromEntries((m3      || []).map(p => [p.date, p.value]));
+
+  const dots = allDates.length > 50 ? 0 : 3;
+  const opts = baseOptions('Millions of Bs');
+  opts.scales.y.min = 0;
+  opts.plugins.tooltip.callbacks = {
+    label: ctx => ctx.parsed.y !== null
+      ? `${ctx.dataset.label}: Bs ${ctx.parsed.y.toLocaleString('en-US', { maximumFractionDigits: 0 })} M`
+      : null,
+  };
+
+  new Chart(document.getElementById('monetaryChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: allDates.map(fmtDate),
+      datasets: [
+        {
+          label: 'Monetary Base',
+          data: allDates.map(d => mbMap[d] ?? null),
+          borderColor: '#0f172a', backgroundColor: 'transparent',
+          borderWidth: 2, borderDash: [6, 3],
+          pointRadius: dots, pointHoverRadius: 5,
+          tension: 0.3, spanGaps: false,
+        },
+        {
+          label: "M'1",
+          data: allDates.map(d => m1Map[d] ?? null),
+          borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.06)',
+          borderWidth: 2, pointRadius: dots, pointHoverRadius: 5,
+          tension: 0.3, fill: true, spanGaps: false,
+        },
+        {
+          label: "M'2",
+          data: allDates.map(d => m2Map[d] ?? null),
+          borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.06)',
+          borderWidth: 2, pointRadius: dots, pointHoverRadius: 5,
+          tension: 0.3, fill: true, spanGaps: false,
+        },
+        {
+          label: "M'3",
+          data: allDates.map(d => m3Map[d] ?? null),
+          borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.06)',
+          borderWidth: 2.5, pointRadius: dots, pointHoverRadius: 6,
+          tension: 0.3, fill: true, spanGaps: false,
         },
       ],
     },
@@ -535,14 +671,31 @@ function buildGdpChart(gdp) {
 // ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   try {
-    const resp = await fetch(DATA_URL);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
+    // Fetch BCB data and parallel rate concurrently
+    const [bcbResp, parResp] = await Promise.all([
+      fetch(DATA_URL),
+      fetch(PARALLEL_URL).catch(() => null),   // parallel.json may not exist yet
+    ]);
+
+    if (!bcbResp.ok) throw new Error(`HTTP ${bcbResp.status} fetching data.json`);
+    const data = await bcbResp.json();
+
+    // Parse parallel data if available
+    let parallelData = null;
+    if (parResp && parResp.ok) {
+      const parJson = await parResp.json();
+      parallelData = parJson.exchange_rate_parallel || null;
+
+      const pd = new Date(parJson.last_updated);
+      document.getElementById('parallel-updated').textContent =
+        pd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } else {
+      document.getElementById('parallel-updated').textContent = 'Not yet available';
+    }
 
     const d = new Date(data.last_updated);
     document.getElementById('last-updated').textContent =
       d.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-    document.getElementById('source-file').textContent = data.source_file;
 
     // Build first tab immediately
     buildReservesChart(data.reserves, data.fx, data.gold);
@@ -550,7 +703,11 @@ async function init() {
 
     // Lazy-build other tabs on first open
     window._chartBuilders = {
-      exchange: () => buildExchangeChart(data.exchange_rate_official, data.exchange_rate_market, data.exchange_rate_parallel),
+      exchange: () => {
+        buildExchangeChart(data.exchange_rate_official, data.exchange_rate_market);
+        buildParallelChart(parallelData);
+      },
+      monetary: () => buildMonetaryChart(data.monetary_base, data.m1, data.m2, data.m3),
       gdp:      () => buildGdpChart(data.gdp || GDP_DATA),
     };
 
