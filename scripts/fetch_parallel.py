@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Fetch the parallel (black market) USD/BOB exchange rate from the
-dolarbluebolivia.click Google Sheets CSV and write to data/parallel.json.
-This script runs daily, independently of the weekly BCB data fetch.
+Fetch the exchange rate CSV from dolarbluebolivia.click and write daily averages
+for both the official rate (column C / index 2) and parallel rate (column E / index 4)
+to data/parallel.json.  Column A (index 0) contains the timestamp.
 """
 import json
 import os
@@ -21,81 +21,73 @@ PARALLEL_CSV_URL = (
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 
 
-def fetch_parallel_rate():
-    """Download and parse the parallel rate CSV."""
+def fetch_exchange_rates():
+    """Download CSV, extract cols A/C/E, return daily-averaged official & parallel series."""
     resp = requests.get(PARALLEL_CSV_URL, timeout=30)
     resp.raise_for_status()
 
     df = pd.read_csv(StringIO(resp.text))
+    print(f"CSV shape: {df.shape}")
     print(f"CSV columns: {list(df.columns)}")
-    print(df.head(3).to_string())
+    print(df.head(5).to_string())
 
-    # Detect date column
-    date_col = None
-    for col in df.columns:
-        if col.strip().lower() in ("fecha", "date", "datetime", "dia", "time", "periodo"):
-            date_col = col
-            break
-    if date_col is None:
-        for col in df.columns:
-            try:
-                pd.to_datetime(str(df[col].iloc[0]))
-                date_col = col
-                break
-            except Exception:
-                pass
+    if df.shape[1] < 5:
+        raise ValueError(f"Expected at least 5 columns, got {df.shape[1]}: {list(df.columns)}")
 
-    # Detect rate column — prefer sell-side (venta)
-    rate_col = None
-    for col in df.columns:
-        if col.strip().lower() in ("venta", "sell", "venta_usd", "precio_venta",
-                                   "paralelo", "value", "rate", "precio", "valor"):
-            rate_col = col
-            break
-    if rate_col is None:
-        for col in df.select_dtypes(include="number").columns:
-            if col != date_col:
-                rate_col = col
-                break
-        if rate_col is None and len(df.columns) > 1:
-            rate_col = df.columns[1]
+    # Positional columns: A=0 (datetime), C=2 (official), E=4 (parallel)
+    date_col     = df.columns[0]
+    official_col = df.columns[2]
+    parallel_col = df.columns[4]
+    print(f"Using: date='{date_col}', official='{official_col}', parallel='{parallel_col}'")
 
-    if date_col is None or rate_col is None:
-        raise ValueError(f"Cannot identify date/rate columns. Found: {list(df.columns)}")
-
-    print(f"Using date_col='{date_col}', rate_col='{rate_col}'")
-
-    seen = {}
+    records = []
     for _, row in df.iterrows():
         try:
-            d = pd.to_datetime(str(row[date_col]))
-            v = float(str(row[rate_col]).replace(",", "."))
-            if pd.isna(v) or v < 1.0 or v > 1000.0:
-                continue
-            seen[d.strftime("%Y-%m-%d")] = round(v, 4)
+            dt       = pd.to_datetime(str(row[date_col]))
+            date_str = dt.strftime("%Y-%m-%d")
+            off      = float(str(row[official_col]).replace(",", "."))
+            par      = float(str(row[parallel_col]).replace(",", "."))
+            if off > 0 and par > 0:
+                records.append({"date": date_str, "official": off, "parallel": par})
         except Exception:
             continue
 
-    result = [{"date": d, "value": v} for d, v in sorted(seen.items())]
-    print(f"Parsed {len(result)} data points")
-    return result
+    if not records:
+        raise ValueError("No valid rows parsed from CSV")
+
+    df2   = pd.DataFrame(records)
+    daily = df2.groupby("date")[["official", "parallel"]].mean().reset_index()
+    daily = daily.sort_values("date")
+
+    official_series = [
+        {"date": row["date"], "value": round(row["official"], 4)}
+        for _, row in daily.iterrows()
+    ]
+    parallel_series = [
+        {"date": row["date"], "value": round(row["parallel"], 4)}
+        for _, row in daily.iterrows()
+    ]
+
+    print(f"Parsed {len(official_series)} daily data points")
+    return official_series, parallel_series
 
 
 def main():
-    print("Fetching parallel exchange rate (dolarbluebolivia)...")
-    data = fetch_parallel_rate()
+    print("Fetching exchange rate data (dolarbluebolivia)...")
+    official, parallel = fetch_exchange_rates()
 
     os.makedirs(DATA_DIR, exist_ok=True)
     output = {
         "last_updated": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "exchange_rate_parallel": data,
+        "exchange_rate_official": official,
+        "exchange_rate_parallel": parallel,
     }
 
     out_path = os.path.join(DATA_DIR, "parallel.json")
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"Saved {len(data)} parallel rate points → {out_path}")
+    print(f"Saved {len(official)} official + {len(parallel)} parallel pts → {out_path}")
 
 
 if __name__ == "__main__":
